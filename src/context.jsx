@@ -4,22 +4,27 @@ import {
   DECREASE_PRODUCT,
   REMOVE_PRODUCT,
   CLEAR_CART,
+  LOADING,
+  DISPLAY_PRODUCTS,
 } from './actions';
 import cartItems from './data';
 import reducer from './reducer';
+import { getTotals } from './utils';
 
 const GlobalContext = createContext();
 
 export const useGlobalContext = () => useContext(GlobalContext);
 
+const url = 'https://www.course-api.com/react-useReducer-cart-project';
+
 const defaultState = {
-  products: cartItems,
+  loading: false,
+  products: new Map(),
 };
 
 const AppContext = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, defaultState);
-
-  const products = state.products;
+  const { totalAmount, cartTotal } = getTotals(state.products);
 
   const increaseProduct = (id) => {
     dispatch({ type: INCREASE_PRODUCT, payload: { id } });
@@ -37,16 +42,21 @@ const AppContext = ({ children }) => {
     dispatch({ type: CLEAR_CART });
   };
 
-  const totalAmount = products.reduce(
-    (total, product) => total + product.amount,
-    0
-  );
+  const fetchProducts = async () => {
+    dispatch({ type: LOADING });
+    const response = await fetch(url);
+    if (!response.ok) {
+      const products = [];
+      dispatch({ type: DISPLAY_PRODUCTS, payload: { products } });
+      return;
+    }
+    const products = await response.json();
+    dispatch({ type: DISPLAY_PRODUCTS, payload: { products } });
+  };
 
-  const cartTotal = products.reduce(
-    (total, product) => total + product.price * product.amount,
-    0
-  );
-
+  useEffect(() => {
+    fetchProducts();
+  }, []);
   return (
     <GlobalContext.Provider
       value={{
@@ -54,7 +64,7 @@ const AppContext = ({ children }) => {
         decreaseProduct,
         removeProduct,
         clearCart,
-        products,
+        ...state,
         totalAmount,
         cartTotal,
       }}
